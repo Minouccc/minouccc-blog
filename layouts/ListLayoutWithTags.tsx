@@ -9,6 +9,7 @@ import Link from '@/components/Link'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import tagData from 'app/tag-data.json'
+import Image from 'next/image'
 
 interface PaginationProps {
   totalPages: number
@@ -121,31 +122,54 @@ export default function ListLayoutWithTags({
           <div>
             <ul>
               {displayPosts.map((post) => {
-                const { path, date, title, summary, tags } = post
+                const { path, date, title, summary, tags, image } = post
                 return (
                   <li key={path} className="py-5">
-                    <article className="flex flex-col space-y-2 xl:space-y-0">
-                      <dl>
-                        <dt className="sr-only">Published on</dt>
-                        <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                          <time dateTime={date} suppressHydrationWarning>
-                            {formatDate(date, siteMetadata.locale)}
-                          </time>
-                        </dd>
-                      </dl>
-                      <div className="space-y-3">
-                        <div>
-                          <h2 className="text-2xl font-bold leading-8 tracking-tight">
-                            <Link href={`/${path}`} className="text-gray-900 dark:text-gray-100">
-                              {title}
-                            </Link>
-                          </h2>
-                          <div className="flex flex-wrap">
-                            {tags?.map((tag) => <Tag key={tag} text={tag} />)}
+                    <article>
+                      <div className="space-y-2 xl:grid xl:grid-cols-12 xl:gap-8 xl:space-y-0">
+                        {image && (
+                          <div className="xl:col-span-3">
+                            <div className="relative aspect-square w-full max-w-[200px] overflow-hidden rounded-lg">
+                              <Link href={`/${path}`}>
+                                <Image
+                                  src={image}
+                                  alt={title}
+                                  fill
+                                  className="object-cover object-center transition duration-300 hover:scale-105"
+                                  sizes="(min-width: 1280px) 200px, 150px"
+                                />
+                              </Link>
+                            </div>
                           </div>
-                        </div>
-                        <div className="prose max-w-none text-gray-500 dark:text-gray-400">
-                          {summary}
+                        )}
+
+                        <div className="space-y-5 xl:col-span-9">
+                          <dl>
+                            <dt className="sr-only">Published on</dt>
+                            <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
+                              <time dateTime={date} suppressHydrationWarning>
+                                {formatDate(date, siteMetadata.locale)}
+                              </time>
+                            </dd>
+                          </dl>
+                          <div className="space-y-3">
+                            <div>
+                              <h2 className="text-2xl font-bold leading-8 tracking-tight">
+                                <Link
+                                  href={`/${path}`}
+                                  className="text-gray-900 dark:text-gray-100"
+                                >
+                                  {title}
+                                </Link>
+                              </h2>
+                              <div className="flex flex-wrap gap-2">
+                                {tags?.map((tag) => <Tag key={tag} text={tag} />)}
+                              </div>
+                            </div>
+                            <div className="prose max-w-none text-gray-500 dark:text-gray-400">
+                              {summary}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </article>

@@ -1,0 +1,140 @@
+---
+title: 🚀快速掌握 Vue3 语法 - ref
+date: '2024-03-15'
+tags: ['vue']
+draft: false
+image: data:image/png;base64,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
+summary: 本文将帮助你全面理解 ref 的使用方法和各种特性。
+---
+
+# Vue3 中的 ref 指南
+
+在 Vue3 中，`ref` 是一个非常重要的响应式 API。本文将帮助你全面理解 ref 的使用方法和各种特性。
+
+## 1. ref 基础使用
+
+ref 用于创建一个响应式的数据引用。当我们需要在 JavaScript 中访问 ref 值时，需要使用 `.value`，但在模板中会自动解包。
+
+```typescript
+<script setup lang="ts">
+import { ref, Ref } from 'vue'
+
+// 类型定义
+type Person = {
+  name: string
+}
+
+// 两种类型声明方式
+const person = ref<Person>({ name: 'minou' })
+const person1: Ref<Person> = ref({ name: 'minou' })
+
+const changeName = () => {
+  person.value.name = 'Minou' // 通过 .value 访问和修改
+}
+</script>
+
+<template>
+  <div>{{ person }}</div>
+  <!-- 模板中自动解包，不需要 .value -->
+  <button @click="changeName">修改名字</button>
+</template>
+```
+
+## 2. isRef 检查
+
+Vue3 提供了 `isRef` 方法来检查一个值是否为 ref 对象：
+
+```typescript
+import { isRef, ref } from 'vue'
+
+const name = ref('minou')
+console.log(isRef(name)) // true
+console.log(isRef('minou')) // false
+```
+
+## 3. shallowRef vs ref
+
+Vue3 提供了两种 ref：
+
+- `ref`: 深层响应式，会递归地使所有嵌套属性都变成响应式
+- `shallowRef`: 浅层响应式，只在 `.value` 层面是响应式的
+
+```typescript
+<script setup lang="ts">
+import { shallowRef, triggerRef } from 'vue'
+
+const shallow = shallowRef({ name: 'minou' })
+
+// 方式1：直接修改 .value，会触发更新
+shallow.value = { name: 'Minou' }
+
+// 方式2：修改内部属性需要手动触发更新
+shallow.value.name = 'Minou'
+triggerRef(shallow) // 手动触发更新
+</script>
+```
+
+## 4. customRef 自定义 ref
+
+`customRef` 允许我们创建自定义的 ref，完全控制依赖追踪和触发更新的时机。这对于实现防抖、节流等功能特别有用。
+
+```typescript
+import { customRef } from 'vue'
+
+// 创建一个带防抖功能的 ref
+function useDebouncedRef(value, delay = 200) {
+  let timeout
+  return customRef((track, trigger) => {
+    return {
+      get() {
+        track() // 追踪依赖
+        return value
+      },
+      set(newValue) {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => {
+          value = newValue
+          trigger() // 触发更新
+        }, delay)
+      },
+    }
+  })
+}
+```
+
+## 5. ref 获取 DOM 元素
+
+ref 还可以用来获取模板中的 DOM 元素：
+
+```typescript
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
+const domRef = ref<HTMLDivElement>()
+
+onMounted(() => {
+  // 在组件挂载后才能访问 DOM
+  console.log(domRef.value?.innerHTML)
+})
+</script>
+
+<template>
+  <div ref="domRef">Hello Vue</div>
+</template>
+```
+
+## 注意事项
+
+1. 在 `<script setup>` 中访问 ref 值时必须使用 `.value`
+2. 在模板中不需要使用 `.value`，Vue 会自动解包
+3. `shallowRef` 修改内部属性时需要手动调用 `triggerRef` 触发更新
+4. DOM ref 只能在组件挂载后访问
+
+## 最佳实践
+
+1. 使用 TypeScript 时，建议为 ref 定义明确的类型
+2. 当只需要表层响应式时，使用 `shallowRef` 可以提高性能
+3. 需要自定义响应式行为时，可以使用 `customRef`
+4. 获取 DOM 元素时，确保在 `onMounted` 生命周期钩子中操作
+
+通过合理使用这些 ref API，我们可以构建出更加灵活和高效的 Vue 应用。
