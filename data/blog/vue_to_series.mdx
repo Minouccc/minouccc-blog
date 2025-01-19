@@ -1,0 +1,151 @@
+---
+title: '🚀to系列: toRef、toRefs、toRaw'
+date: '2024-03-25'
+tags: ['vue']
+draft: false
+summary: 本文将帮助你理解 Vue3 中 toRef 和 toRefs 的使用方法及其在响应式编程中的重要性。
+---
+
+# Vue3 中的 toRef 和 toRefs 指南
+
+在 Vue3 中，`toRef` 和 `toRefs` 是两个非常有用的 API，用于处理响应式对象的属性。本文将探讨它们的用法及其在响应式编程中的重要性。
+
+## 1. toRef 的使用
+
+`toRef` 用于为源响应式对象上的某个属性新创建一个 `ref`，保持响应式连接。这意味着你可以通过 `ref` 来访问和修改原始对象的属性。
+
+```typescript
+<script setup lang="ts">
+import { reactive, toRaw, toRef } from "vue";
+import Child from "./Child.vue";
+
+export interface Man {
+  name: string;
+  age: string;
+  like: string;
+}
+
+const man = reactive<Man>({
+  name: "minou",
+  age: "18",
+  like: "coding",
+});
+
+const foo = toRef(man, "age");
+
+const change = () => {
+  man.name = "Minou";
+  foo.value = "20"; // 修改引用将更新原引用，即 man.age = '20'
+
+  const Man = toRaw(man);
+  console.log(man, Man); // 将响应式对象变成普通对象
+};
+</script>
+
+<template>
+  <Child :man="man" />
+  <button @click="change">change</button>
+</template>
+
+<style scoped></style>
+```
+
+在这个示例中，我们创建了一个响应式对象 `man`，并使用 `toRef` 创建了一个指向 `man.age` 的 `ref`。当我们修改 `foo.value` 时，`man.age` 也会随之更新。
+
+## 2. toRefs 的使用
+
+`toRefs` 用于将响应式对象的所有属性转换为 `ref`，以便在解构时保持响应式。这对于避免响应式丢失非常重要。
+
+```typescript
+<script setup lang="ts">
+import { reactive, toRefs, watch } from "vue";
+
+function useCount() {
+  const state = reactive({
+    count: 0,
+  });
+
+  function update(value: number) {
+    state.count = value;
+  }
+
+  return {
+    state: toRefs(state),
+    update,
+  };
+}
+
+const {
+  state: { count },
+  update,
+} = useCount();
+
+watch(
+  count,
+  (s) => {
+    console.log("state", s);
+  },
+  { deep: true }
+);
+</script>
+
+<template>
+  <div>
+    <button @click="update(count - 1)">-1</button>
+    {{ count }}
+    <button @click="update(count + 1)">+1</button>
+  </div>
+</template>
+
+<style scoped></style>
+```
+
+在这个示例中，我们使用 `toRefs` 将 `state` 对象的属性转换为 `ref`，确保在解构时保持响应式。这样，当我们更新 `count` 时，视图会自动更新。
+
+## 3. 在子组件中使用 toRef
+
+在子组件中，我们可以使用 `toRef` 来监听父组件传递的响应式属性。这使得我们能够在子组件中保持对父组件状态的响应式连接。
+
+```typescript
+<script setup lang="ts">
+import { toRef, watch } from "vue";
+import { Man } from "./App.vue";
+
+const props = defineProps<{
+  man: Man;
+}>();
+
+const name = toRef(props.man, "name");
+
+/* 监听响应式属性 getter 打印 props man name Minou */
+watch(
+  name,
+  (p) => {
+    console.log("props man name", p);
+  },
+  {
+    deep: true,
+  }
+);
+</script>
+
+<template></template>
+
+<style scoped></style>
+```
+
+在这个示例中，我们使用 `toRef` 将 `props.man` 的 `name` 属性转换为 `ref`，并通过 `watch` 监听其变化。
+
+## 注意事项
+
+1. 使用 `toRef` 时，确保源对象是响应式的，以保持响应式连接。
+2. 使用 `toRefs` 时，解构后的属性仍然是 `ref`，可以直接在模板中使用。
+3. 在子组件中使用 `toRef` 可以方便地监听父组件的响应式属性。
+
+## 最佳实践
+
+1. 在使用响应式对象时，优先考虑使用 `toRefs` 来避免响应式丢失。
+2. 在子组件中使用 `toRef` 来保持与父组件的响应式连接。
+3. 通过 `toRaw` 将响应式对象转换为普通对象，以便于调试和查看其当前状态。
+
+通过合理使用 `toRef` 和 `toRefs`，我们可以构建出更加灵活和高效的 Vue 应用，确保响应式状态的正确管理。

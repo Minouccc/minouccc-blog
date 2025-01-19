@@ -1,0 +1,110 @@
+---
+title: 🚀关于 Vue3 中的 ref 解包
+date: '2024-03-20'
+tags: ['vue']
+draft: false
+summary: 本文将帮助你理解 Vue3 中 ref 的解包机制及其在不同上下文中的表现。
+---
+
+# Vue3 中的 ref 解包指南
+
+在 Vue3 中，`ref` 是一个重要的响应式 API。理解 `ref` 的解包机制对于有效使用 Vue3 至关重要。本文将探讨 `ref` 在不同上下文中的解包行为。
+
+## 1. 作为 reactive 对象的属性
+
+当 `ref` 作为 `reactive` 对象的属性时，它会自动解包为普通属性。这意味着你可以直接访问和修改它的值。
+
+```typescript
+<script setup lang="ts">
+import { reactive, ref } from "vue";
+
+const count = ref(0);
+const state = reactive({ count });
+
+console.log(state.count); // 0
+state.count = 1;
+console.log(count.value); // 1
+
+const otherCount = ref(2);
+state.count = otherCount;
+console.log(state.count); // 2
+console.log(count.value); // 1
+
+const shallowState = shallowReactive({ count });
+// 这里需要 .value
+console.log(shallowState.count.value); // 只有当嵌套在一个深层响应式对象内时，才会发生 ref 解包
+</script>
+
+<template></template>
+
+<style scoped></style>
+```
+
+## 2. 作为响应式数组或原生集合中的元素
+
+当 `ref` 作为响应式数组或原生集合（如 `Map`）中的元素时，它不会被自动解包。在这种情况下，你需要使用 `.value` 来访问它的值。
+
+```typescript
+<script setup lang="ts">
+import { reactive, ref } from "vue";
+
+const books = reactive([ref("Vue 3 Guide")]);
+// 这里需要 .value
+console.log(books[0].value); // Vue 3 Guide
+
+const map = reactive(new Map([["count", ref(0)]]));
+// 这里需要 .value
+console.log(map.get("count").value); // 0
+</script>
+
+<template></template>
+
+<style scoped></style>
+```
+
+## 3. 在模板渲染上下文中的解包
+
+在模板渲染上下文中，只有顶级的 `ref` 属性才会被解包。这意味着如果 `ref` 嵌套在对象中，它不会被自动解包。
+
+```typescript
+<script setup lang="ts">
+import { ref } from "vue";
+
+/** count 和 object 是顶级属性，但 object.id 不是 */
+const count = ref(0);
+const object = { id: ref(1) };
+
+/** 可以将 id 解构为一个顶级属性 */
+const { id } = object;
+</script>
+
+<template>
+  <!-- 2 -->
+  <div>{{ count + 1 }}</div>
+
+  <!-- 表达式不会按预期工作 -->
+  <div>{{ object.id + 1 }}</div>
+
+  <!-- 2 -->
+  <div>{{ id + 1 }}</div>
+
+  <!-- 如果 ref 是文本插值的最终计算值 (即 {{ }} 标签)，那么它将被解包  -->
+  <div>{{ object.id }}</div>
+</template>
+
+<style scoped></style>
+```
+
+## 注意事项
+
+1. 在 `<script setup>` 中，顶级的 `ref` 会自动解包，但嵌套的 `ref` 需要使用 `.value`。
+2. 在响应式数组或集合中，`ref` 不会自动解包，必须使用 `.value`。
+3. 在模板中，只有顶级的 `ref` 属性会被解包，嵌套的 `ref` 需要手动解包。
+
+## 最佳实践
+
+1. 在使用 `ref` 时，注意其解包行为，以避免不必要的错误。
+2. 在复杂的响应式结构中，考虑使用 `reactive` 来管理状态。
+3. 在模板中，尽量将 `ref` 作为顶级属性使用，以便于自动解包。
+
+通过理解 `ref` 的解包机制，我们可以更有效地使用 Vue3 的响应式系统，构建出更灵活和高效的应用。

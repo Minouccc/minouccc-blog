@@ -1,0 +1,97 @@
+---
+title: 🚀computed用法指南
+date: '2024-04-10'
+tags: ['vue']
+draft: false
+summary: 本文将帮助你理解 Vue3 中 computed 的使用方法及其在响应式编程中的重要性。
+---
+
+# Vue3 中的 computed 指南
+
+在 Vue3 中，`computed` 是一个非常重要的 API，用于创建基于其他响应式数据的计算属性。计算属性是响应式的，意味着它们会自动更新以反映其依赖的数据变化。本文将探讨 `computed` 的用法及其在不同场景中的应用。
+
+## 1. 基本用法
+
+`computed` 可以用于创建一个计算属性，该属性的值是基于其他响应式数据计算得出的。
+
+```typescript
+<script setup lang="ts">
+import { computed, ref } from "vue";
+
+const firstname = ref("minou");
+const lastname = ref("ccc");
+
+/* 函数式写法 仅支持一个 getter 函数 */
+const fullname = computed<string>(() => {
+  return firstname.value + " " + lastname.value;
+});
+</script>
+
+<template>
+  <div>{{ fullname }}</div>
+</template>
+
+<style scoped></style>
+```
+
+在这个示例中，`fullname` 是一个计算属性，它的值是 `firstname` 和 `lastname` 的组合。当这两个值发生变化时，`fullname` 会自动更新。
+
+## 2. 选项式写法
+
+除了函数式写法，`computed` 还支持选项式写法，可以传入一个对象，其中包含 `get` 和 `set` 方法。
+
+```typescript
+<script setup lang="ts">
+import { computed, ref } from "vue";
+
+const firstname = ref("minou");
+const lastname = ref("ccc");
+
+/* 选项式写法 支持一个对象传入 get 函数以及 set 函数自定义操作 */
+const fullname = computed<string>({
+  get() {
+    return firstname.value + " " + lastname.value;
+  },
+  set(newVal) {
+    [firstname.value, lastname.value] = newVal.split("-");
+  },
+});
+
+const change = () => {
+  fullname.value = "MINOU-CCC"; // 通过 set 方法更新 firstname 和 lastname
+};
+</script>
+
+<template>
+  <div>{{ fullname }}</div>
+  <button @click="change">change name</button>
+</template>
+
+<style scoped></style>
+```
+
+在这个示例中，`fullname` 既可以读取值，也可以通过 `set` 方法更新 `firstname` 和 `lastname`。当点击按钮时，`fullname` 的值会被更新为 "MINOU-CCC"，并且 `firstname` 和 `lastname` 也会相应地更新。
+
+## 3. 计算属性的特点
+
+- **缓存**：计算属性会根据其依赖的响应式数据进行缓存，只有在依赖的数据发生变化时，计算属性才会重新计算。这使得计算属性在性能上比方法调用更高效。
+- **响应式**：计算属性是响应式的，意味着它们会自动更新以反映其依赖的数据变化。
+
+## 4. 使用场景
+
+- **数据格式化**：计算属性可以用于格式化数据，例如将用户输入的名字和姓氏组合成全名。
+- **复杂计算**：当需要基于多个响应式数据进行复杂计算时，计算属性可以帮助简化逻辑。
+
+## 注意事项
+
+1. 计算属性的 getter 函数应该是纯函数，不应有副作用。
+2. 如果需要修改计算属性的值，可以使用选项式写法中的 `set` 方法。
+3. 计算属性的值是基于其依赖的响应式数据计算得出的，因此在使用时要确保依赖的数据是响应式的。
+
+## 最佳实践
+
+1. 使用计算属性来处理复杂的逻辑和数据格式化，以提高代码的可读性和可维护性。
+2. 避免在计算属性中执行异步操作或副作用，确保其为纯函数。
+3. 在需要修改值时，使用选项式写法的 `set` 方法。
+
+通过合理使用 `computed`，我们可以更好地管理 Vue 应用中的响应式状态，确保数据变化时能够及时响应。
