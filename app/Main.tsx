@@ -1,6 +1,5 @@
 import Link from '@/components/Link'
 import Tag from '@/components/Tag'
-import Image from 'next/image'
 import siteMetadata from '@/data/siteMetadata'
 import { formatDate } from 'pliny/utils/formatDate'
 import NewsletterForm from 'pliny/ui/NewsletterForm'
@@ -22,26 +21,11 @@ export default function Home({ posts }) {
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {!posts.length && 'No posts found.'}
           {posts.slice(0, MAX_DISPLAY).map((post) => {
-            const { slug, date, title, summary, tags, image } = post
+            const { slug, date, title, summary, tags } = post
             return (
               <li key={slug} className="py-8">
                 <article>
                   <div className="space-y-2 xl:grid xl:grid-cols-12 xl:gap-8 xl:space-y-0">
-                    {image && (
-                      <div className="xl:col-span-3">
-                        <div className="relative aspect-square w-full max-w-[200px] overflow-hidden rounded-lg">
-                          <Link href={`/blog/${slug}`}>
-                            <Image
-                              src={image}
-                              alt={title}
-                              fill
-                              className="object-cover object-center transition duration-300 hover:scale-105"
-                              sizes="(min-width: 1280px) 200px, 150px"
-                            />
-                          </Link>
-                        </div>
-                      </div>
-                    )}
                     <div className="space-y-5 xl:col-span-9">
                       <dl>
                         <dt className="sr-only">Published on</dt>
@@ -92,11 +76,11 @@ export default function Home({ posts }) {
           </Link>
         </div>
       )}
-      {siteMetadata.newsletter?.provider && (
+      {/* {siteMetadata.newsletter?.provider && (
         <div className="flex items-center justify-center pt-4">
           <NewsletterForm />
         </div>
-      )}
+      )} */}
     </>
   )
 }

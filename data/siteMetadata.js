@@ -3,7 +3,7 @@ const siteMetadata = {
   title: 'Minouccc|Blog',
   author: 'Minouccc',
   headerTitle: `Minouccc's Blog`,
-  description: `Minouccc's Blog - Sharing frontend knowledge, personal management and works`,
+  description: `Minouccc's Blog - 分享知识、个人管理、个人作品等`,
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
