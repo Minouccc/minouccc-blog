@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile # 确保 Dockerfile 在同一目录下
+    ports:
+      - '3000:3000' # 映射 Node.js 应用的端口
+    environment:
+      - NODE_ENV=production
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - '80:80' # 映射 Nginx 的端口
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf # 挂载 Nginx 配置文件
+    depends_on:
+      - app # 确保 Nginx 在 Node.js 应用之后启动
