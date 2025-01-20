@@ -73,6 +73,7 @@ module.exports = () => {
       dirs: ['app', 'components', 'layouts', 'scripts'],
     },
     images: {
+      domains: ['blog.minouccc.online'],
       remotePatterns: [
         {
           protocol: 'https',
