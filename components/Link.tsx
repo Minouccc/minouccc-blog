@@ -25,6 +25,10 @@ const CustomLink = ({ href, ...rest }: LinkProps & AnchorHTMLAttributes<HTMLAnch
   }, [pathname])
 
   const handleClick = () => {
+    if (href === '/' && pathname === '/') {
+      return
+    }
+
     if (isInternalLink) {
       NProgress.start()
     }
