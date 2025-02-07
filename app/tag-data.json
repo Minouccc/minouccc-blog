@@ -1,6 +1,6 @@
 {
-  "frontend": 1,
-  "nextjs": 4,
+  "react": 5,
+  "nextjs": 5,
   "vue": 6,
-  "react": 4
+  "frontend": 1
 }

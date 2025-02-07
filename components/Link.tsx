@@ -24,9 +24,20 @@ const CustomLink = ({ href, ...rest }: LinkProps & AnchorHTMLAttributes<HTMLAnch
     NProgress.done()
   }, [pathname])
 
-  const handleClick = () => {
+  const handleClick = (event) => {
     if (href === '/' && pathname === '/') {
       return
+    }
+
+    if (href === '/blog/frontend') {
+      const password = window.prompt('请输入密码：')
+      if (password === 'minouccc') {
+        console.log('true')
+      } else {
+        event.preventDefault() // 阻止默认行为
+        alert('密码错误，无法进入该页面。')
+        return
+      }
     }
 
     if (isInternalLink) {
