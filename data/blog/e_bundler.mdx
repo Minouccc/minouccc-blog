@@ -1,0 +1,81 @@
+---
+title: 🛠️ 打包工具
+date: '2024-05-17'
+tags: ['工程化']
+draft: false
+summary: 本篇文章介绍 webpack、vite、rollup 基础知识与配置。
+---
+
+### Webpack - 一种用于构建 JavaScript 应用程序的静态模块打包器
+
+#### 配置文件
+
+- **入口**：entry
+- **输出**：output
+- **模块**：module 配置 rule，rule 里写各种 loader
+- **插件**：plugins
+- **其他配置**：mode 模式，devtool（source-map）
+
+#### 性能优化
+
+关注两个点：
+
+1. **怎么减少 webpack 的打包时间**：
+
+   - 从 loader 角度说，影响打包效率首当其冲应该是 Babel，因为 Babel 会把代码转成 AST，AST 继续转变成新代码。项目越大，转换代码的工作越多，效率越低，所以可以优化检索范围。
+     - 比如 include 只在 src 目录下，exclude 排除 node_modules。当然还可以将 Babel 编译过的文件缓存起来，下次编译的时候只编译更改的文件，这样可以减少打包时间。
+   - 受 Node 单线程限制，webpack 也是单线程。当执行 loader 长时间编译任务很多，可能会导致等待的情况，所以可以开启插件 HappyPack，可以将 loader 同步执行转为并行，充分利用系统资源。
+   - DllPlugin 可以提前将类库打包然后引入，这种方式可以减少打包类库次数，只有当类库更新才重新打包，也实现了将公共代码抽离成单独文件的方案（比如想统一打包的类库为 `vender: ['react']`）。
+   - 一些小的优化点：
+     - 比如别名配置，帮助 webpack 更快映射找到路径（resolve.alias）。
+     - 比如某些文件你确定没有其他依赖，可以配置 webpack 不扫描这个文件。对于大型的类库有比较大作用，因为某些库发布时就已经预打包，这意味着它们将所有依赖项打包到一个文件或多个文件，无需构建工具再次打包，相当于依赖关系已经处理好了（module.noParse），比如 jQuery、lodash。
+     - 比如 HMR 热模块替换，修改某个模块代码，只有这个模块需要重新打包编译。
+
+2. **怎么减少 webpack 打包后的文件体积**：
+
+   - 按需加载：平常开发 SPA 项目时，都会至少存在十几个以上的路由，这时候可以将每个路由打包成一个文件，按需加载。对于大型库比如 lodash 也可以。
+   - Tree Shaking：删除项目中未引用的代码，webpack 4 生产是默认开启。
+   - 代码分割：多入口文件如果都引用了同一份代码，我们希望只打包成一份，其他文件引入可以用 splitChunks。
+   - 代码压缩：webpack 3 是通过一些插件压缩 JS，webpack 4 的话 production 默认开启，同时还可以去压缩 HTML、CSS 以及一些 log 打印。
+
+3. **怎么优化代码的运行性能**：
+   - 当配置了 splitChunks，可以设置浏览器在空闲时间加载后续要使用的资源。
+   - Network cache：开发过程中可以对静态资源做缓存，浏览器第二次请求资源就快了。
+   - PWA：给项目提供离线的体验。
+
+### Vite - 新兴的构建工具，它相比 webpack 最大的特点就是快
+
+Vite 在开发环境（TS JSX 会做编译）并不做打包，基于浏览器的 type 为 module 的 script 实现。
+
+（Vite 在开发环境下就是起了一个做编译的服务器，根据请求的 URL 找到对应的模块做编译之后返回。）
+
+当你请求 `index.html` 的时候，它会通过 AST 遍历，找到其中所有的 script：
+
+编译是通过不同的插件实现：
+
+- **esbuild 插件**：编译 TS 和 JS。
+- **CSS 插件**：编译 CSS。
+
+浏览器支持 ES Module 的 import，那如果 `node_modules` 下的依赖有用 CommonJS 模块规范的代码呢？
+
+这种就需要提前做一些转换，把 CommonJS 转成 ESM。
+
+还有一个问题，如果每个模块都是请求时编译，那像 `lodash-es` 这种包，它可是有几百个模块的 import 呢：
+
+这样跑起来，一个 `node_modules` 下的包就有几百个请求，依赖多了以后，很容易就几千个请求。
+
+所以我们要提前处理，不但要把 `node_modules` 下代码的 CommonJS 提前转成 ES Module，还有提前对这些包做一次打包，变成一个 ES Module 模块。
+
+所以，Vite 加了一个预构建功能 **pre bundle**。
+
+在启动完开发服务器的时候，就马上对 `node_modules` 下的代码做打包，这个也叫 **deps optimize**，依赖优化。
+
+Vite 会在这些预打包的模块后加一个 query 字符串带上 hash，然后用 max-age 强缓存。
+
+在 build 的时候，Vite 会用 Rollup 做打包，那不会导致开发时的代码和生产环境不一致么？
+
+Dev 时跑的 Vite 插件：
+
+Vite 插件是兼容 Rollup 插件的，这样在开发的时候，在生产环境打包的时候，都可以用同样的插件对代码做 transform 等处理。
+
+在 dev 的时候，它实现了一个 `PluginContainer`，用和 Rollup 插件同样的参数来调用 Vite 插件，然后 build 的时候，可以把这些插件直接作为 Rollup 插件用。

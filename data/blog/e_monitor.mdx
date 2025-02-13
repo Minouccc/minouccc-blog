@@ -1,0 +1,938 @@
+---
+title: 🛠️ 前端监控
+date: '2024-05-15'
+tags: ['工程化']
+draft: false
+summary: 本篇文章将介绍前端监控的设计思路和实现方法。
+---
+
+**完整的前端监控平台设计思路**：数据采集与上报、数据分析和存储、数据展示、数据报警和监控
+
+1: 页面性能检测工具: Lighthouse
+
+2: web-vitals: https://www.npmjs.com/package/web-vitals
+
+> 官方指标标准
+> | 指标 | 作用 | 标准 |
+> | -------------------------------- | -------------- | ------------------------- |
+> | `FCP(First Contentful Paint)` | `首次内容绘制时间` | `标准 ≤ 1s` |
+> | `LCP(Largest Contentful Paint)` | `最大内容绘制时间` | `标准 ≤ 2s`|
+> | `TTI(Time to Interactive)` | `页面可交互时间` | `标准 ≤ 3.2s` |
+
+![png](http://blog.minouccc.online:9000/blog/frontend_1.2.png)
+![png](http://blog.minouccc.online:9000/blog/frontend_1.3.png)
+![png](http://blog.minouccc.online:9000/blog/frontend_1.4.png)
+![png](http://blog.minouccc.online:9000/blog/frontend_1.5.png)
+![png](http://blog.minouccc.online:9000/blog/frontend_1.6.png)
+
+### 1. 性能监控收集
+
+#### 1）统计FCP、LCP等指标
+
+**MDN性能检测度量事件** - [PerformanceObserver](https://developer.mozilla.org/zh-CN/docs/Web/API/PerformanceObserver/PerformanceObserver)
+
+> observerFCP.js
+
+```js
+export default function observerFCP() {
+  const entryHandler = (list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.name === 'first-contentful-paint') {
+        observer.disconnect()
+        const json = entry.toJSON()
+        console.log(json)
+        const reportData = {
+          ...json,
+          type: 'performance',
+          subType: entry.name,
+          pageUrl: window.location.href,
+        }
+        // 发送数据 todo;
+        lazyReportBatch(reportData)
+      }
+    }
+  }
+  // 统计和计算fcp的时间
+  const observer = new PerformanceObserver(entryHandler)
+  // buffered: true 确保观察到所有paint事件
+  observer.observe({ type: 'paint', buffered: true })
+}
+```
+
+##### web-vitals
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web-vitals</title>
+    <script type="module">
+      import {
+        onCLS,
+        onINP,
+        onLCP,
+      } from 'https://unpkg.com/web-vitals@4/dist/web-vitals.attribution.js?module'
+
+      onCLS(console.log)
+      onINP(console.log)
+      onLCP(console.log)
+    </script>
+  </head>
+
+  <body>
+    <div>test</div>
+  </body>
+</html>
+```
+
+#### 2）统计静态资源指标
+
+> observerEntries.js
+
+```js
+import { lazyReportBatch } from '../report'
+export default function observerEntries() {
+  if (document.readyState === 'complete') {
+    observerEvent()
+  } else {
+    const onLoad = () => {
+      observerEvent()
+      window.removeEventListener('load', onLoad, true)
+    }
+    window.addEventListener('load', onLoad, true)
+  }
+}
+export function observerEvent() {
+  const entryHandler = (list) => {
+    const data = list.getEntries()
+    for (let entry of data) {
+      if (observer) {
+        observer.disconnect()
+      }
+      const reportData = {
+        name: entry.name, // 资源的名字
+        type: 'performance', // 类型
+        subType: entry.entryType, //类型
+        sourceType: entry.initiatorType, // 资源类型
+        duration: entry.duration, // 加载时间
+        dns: entry.domainLookupEnd - entry.domainLookupStart, // dns解析时间
+        tcp: entry.connectEnd - entry.connectStart, // tcp连接时间
+        redirect: entry.redirectEnd - entry.redirectStart, // 重定向时间
+        ttfb: entry.responseStart, // 首字节时间
+        protocol: entry.nextHopProtocol, // 请求协议
+        responseBodySize: entry.encodedBodySize, // 响应内容大小
+        responseHeaderSize: entry.transferSize - entry.encodedBodySize, // 响应头部大小
+        transferSize: entry.transferSize, // 请求内容大小
+        resourceSize: entry.decodedBodySize, // 资源解压后的大小
+        startTime: performance.now(),
+      }
+      lazyReportBatch(reportData)
+      // console.log(entry);
+    }
+  }
+
+  let observer = new PerformanceObserver(entryHandler)
+  observer.observe({ type: ['resource'], buffered: true })
+}
+```
+
+#### 3）页面 load 时间统计
+
+> observerLoad.js
+
+```js
+export default function observerLoad() {
+  window.addEventListener('pageShow', function (event) {
+    requestAnimationFrame(() => {
+      ;['load'].forEach((type) => {
+        const reportData = {
+          type: 'performance',
+          subType: type,
+          pageUrl: window.location.href,
+          startTime: performance.now() - event.timeStamp,
+        }
+        // 发送数据
+        lazyReportBatch(reportData)
+      })
+    }, true)
+  })
+}
+```
+
+#### 4）统计 ajax 的请求时间 - xhr
+
+`loadend` 事件总是在一个资源的加载进度停止之后被触发。
+
+> xhr.js
+
+```js
+export const originalProto = XMLHttpRequest.prototype
+export const originalSend = originalProto.send
+export const originalOpen = originalProto.open
+
+function overwriteOpenAndSend() {
+  originalProto.open = function newOpen(...args) {
+    this.url = args[1]
+    this.method = args[0]
+    originalOpen.apply(this, args)
+  }
+  originalProto.send = function newSend(...args) {
+    this.startTime = Date.now()
+    const onLoaded = () => {
+      this.endTime = Date.now()
+      this.duration = this.endTime - this.startTime
+      const { url, method, startTime, endTime, duration, status } = this
+      const reportData = {
+        status,
+        duration,
+        startTime,
+        endTime,
+        url,
+        method: method.toUpperCase(),
+        type: 'performance',
+        success: status >= 200 && status < 300,
+        subType: 'xhr',
+      }
+      // todo 发送数据
+      lazyReportBatch(reportData)
+      this.removeEventListener('loadend', onLoaded, true)
+    }
+    this.addEventListener('loadend', onLoaded, true)
+    originalSend.apply(this, args)
+  }
+}
+export default function xhr() {
+  overwriteOpenAndSend()
+}
+```
+
+#### 5）统计 ajax 的请求时间 - fetch
+
+> fetch.js
+
+```js
+import { lazyReportBatch } from '../report'
+const originalFetch = window.fetch
+function overwriteFetch() {
+  window.fetch = function newFetch(url, config) {
+    const startTime = Date.now()
+    const reportData = {
+      type: 'performance',
+      subType: 'fetch',
+      url,
+      startTime,
+      method: config.method,
+    }
+    return originalFetch(url, config)
+      .then((res) => {
+        const endTime = Date.now()
+        reportData.endTime = endTime
+        reportData.duration = endTime - startTime
+        const data = res.clone()
+        reportData.status = data.status
+        reportData.success = data.ok
+        // todo 上报数据
+        lazyReportBatch(reportData)
+        return res
+      })
+      .catch((err) => {
+        const endTime = Date.now()
+        reportData.endTime = endTime
+        reportData.duration = endTime - startTime
+        reportData.status = 0
+        reportData.success = false
+        // todo 上报数据
+        lazyReportBatch(reportData)
+      })
+  }
+}
+export default function fetch() {
+  overwriteFetch()
+}
+```
+
+### 2. 错误监控收集
+
+包括以下：
+
+- js 代码运行错误、语法错误等。
+- 异步错误等
+- 静态资源加载错误
+- 接口请求报错
+
+#### js 原生错误
+
+- 语法错误
+
+  【原因】：这种错误通常由于代码书写不规范或者语法错误引起，代码编译就可以被发现。
+
+- 运行时错误
+
+  【原因】：这种错误通常由于代码执行过程中出现了错误，通常需要在代码实际运行时才能被发现。
+
+- 逻辑错误
+
+  【原因】：这种错误通常由于代码逻辑不正确，这种错误通常比较难以发现和解决。
+
+error 事件是用来监听 DOM 操作错误 DOMException 和 js 错误告警的，具体来说，js 错误分为下面 8 类:
+
+- InternalError: 内部错误，比如递归爆栈。
+- RangeError: 范围错误，比如`new Array(-1)`。【运行错误】--数组范围错误。
+- EvalError: 使用 eval() 时错误。【运行错误】
+- ReferenceError: 引用错误，比如使用未定义变量。【运行错误】--变量引用错误。
+- SyntaxError: 语法错误，比如`var a = `。【语法错误】【运行错误】
+- TypeError: 类型错误，比如`[1,2].split('.')`。【运行错误】--数据类型错误。
+- URLError：给 encodeURL 或 decodeURL() 传递的参数无效，比如decodeURL('%2')。
+- Error: 上面7种错误的基类，通常是开发者抛出。
+
+也就是说，代码运行时发生的上述8类错误，都可以被检测到。
+
+#### 错误捕获方式
+
+1）try-catch 语句
+
+```js
+try {
+  // 可能会抛出异常的代码
+} catch (err) {
+  // 处理异常的代码
+}
+```
+
+> try-catch 语句可以用来捕获 js 代码中的语法错误和运行时错误。当代码块中的语句抛出异常时，程序会跳转到 catch 语句块，并执行相应的处理逻辑。
+> 注意: try-catch 语句适用于同步代码的错误捕获，如果代码块中存在**异步代码**，try-catch 语句无法捕获异步代码中的错误。
+
+2）window.onerror
+
+捕捉全局 JS 异常，包括同步和异步代码中的错误。
+
+```js
+window.onerror = function (message, source, lineno, colno, error) {
+  // 处理错误的代码
+}
+```
+
+> window.onerror 是一个全局的错误处理函数，可以用来捕获未被 try-catch 捕获的运行时错误。当 JavaScript 代码执行发生异常时，会自动触发 window.onerror 事件，并传递相关的错误信息。
+
+3）window.addEventListener("error")
+
+捕捉静态资源加载错误。
+
+- 可以捕捉图片、script、css 等加载的错误。
+- 不可以捕捉：new Image() 错误和 fetch 错误。
+
+```js
+window.addEventListener('error', function (event) {
+  // 处理错误
+})
+```
+
+> window.addEventListener('error', ...) 提供了一种监视 window 对象上的 error 事件的方法。与 window.onerror 不同，error 事件的监听器可以在页面中的任何元素上注册，以捕捉特定元素产生的错误。
+
+4）unhandledrjection
+
+Promise 内部抛出的错误是无法被 error 捕获到的，这时需要用 unhandledrjection 事件。
+
+```js
+window.addEventListener('unhandledrejection', (event) => {
+  console.warn(`UNHANDLED PROMISE REJECTION: ${event.reason}`)
+})
+```
+
+#### 例子
+
+1）try-catch
+
+```js
+    <script>
+        setTimeout(() => {
+            try {
+                console.log('1->begin');
+                error; // 这里会抛出一个错误
+                console.log('1->end');
+            } catch (e) {
+                console.log('catch---', e);
+            }
+        }, 1000);
+    </script>
+```
+
+```js
+catch--- ReferenceError: error is not defined
+    at test.html:27:17
+```
+
+2）try-catch
+
+```js
+    <script>
+        function fn() {
+            console.log('1->begin');
+            error; // 这里会抛出一个错误
+            console.log('1->end');
+        }
+
+        setTimeout(() => {
+            try {
+                fn(); // 调用 fn 函数
+            } catch (e) {
+                console.table('catch', e); // 捕获错误并打印
+            }
+        }, 1000);
+    </script>
+```
+
+```js
+catch ReferenceError: error is not defined
+    at fn (test.html:26:13)
+    at test.html:32:17
+```
+
+3）try-catch
+
+```js
+    <script>
+        function fn() {
+            console.log('1->begin');
+            error; // 这里会抛出一个错误
+            console.log('1->end');
+        }
+
+        try {
+            setTimeout(() => {
+                fn(); // 调用 fn 函数
+            });
+        } catch (e) {
+            console.log('catch', e); // 处理异步的时候错误没有捕获
+        }
+    </script>
+```
+
+```js
+// 此时错误是浏览器抛出的 没有被 catch 捕获
+test.html:26 Uncaught ReferenceError: error is not defined
+    at fn (test.html:26:13)
+    at test.html:32:17
+```
+
+4）window.onerror
+
+```js
+<script>
+        function fn() {
+            console.log('1->begin');
+            error; // 这里会抛出一个错误
+            console.log('1->end'); // 这行不会被执行
+        }
+
+        window.onerror = (...args) => {
+            console.log('onerror:', args); // 捕获错误并打印
+        };
+
+        setTimeout(() => {
+            fn(); // 调用 fn 函数
+        }, 1000);
+    </script>
+```
+
+![png](http://blog.minouccc.online:9000/blog/frontend_1.7.png)
+
+5）window.addEventListener('error', ...)
+
+```js
+<body>
+    <img src="xxx.jpg" />
+</body>
+  <script>
+        window.addEventListener('error', (args) => {
+            console.log('error event:', args);
+            return true; // 阻止事件的默认行为
+        }, true);
+    </script>
+```
+
+![png](http://blog.minouccc.online:9000/blog/frontend_1.8.png)
+
+6）promise.catch
+
+```js
+   <script>
+        new Promise((resolve, reject) => {
+            error(); // 这里会抛出一个错误
+        }).catch(err => {
+            console.log('promise catch:', err); // 捕获并打印错误
+        });
+    </script>
+```
+
+```js
+promise catch: ReferenceError: error is not defined
+    at test.html:10:13
+    at new Promise (<anonymous>)
+    at test.html:9:9
+```
+
+但针对旧代码全部添加.catch不方便，可以使用以下方式:
+
+```js
+    <script>
+        new Promise((resolve, reject) => {
+            error(); // 这里会抛出一个错误
+        })
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.log('unhandledrejection', e);
+            // throw e.reason;
+        });
+    </script>
+```
+
+![png](http://blog.minouccc.online:9000/blog/frontend_1.9.png)
+
+7）async/await
+
+```js
+    <script>
+        const asyncFunc = () => new Promise((resolve, reject) => {
+            error; // 这里会抛出一个错误
+        });
+
+        setTimeout(async () => {
+            try {
+                await asyncFunc(); // 等待 asyncFunc 的执行
+            } catch (e) {
+                console.log('catch:', e); // 捕获并打印错误
+            }
+        }, 1000);
+    </script>
+```
+
+```js
+catch: ReferenceError: error is not defined
+    at test.html:10:13
+    at new Promise (<anonymous>)
+    at asyncFunc (test.html:9:33)
+    at test.html:15:23
+```
+
+等同于:
+
+```js
+window.addEventListener('unhandledrejection', (e) => {
+  console.log('unhandledrejection', e)
+  // throw e.reason;
+})
+
+const asyncFunc = () =>
+  new Promise((resolve) => {
+    error // 这里会抛出一个错误
+  })
+
+setTimeout(async () => {
+  await asyncFunc() // 等待 asyncFunc 的执行
+}, 1000)
+```
+
+8）结合
+
+一般使用`unhandledrejection` throw 错误，再由`window.addEventListener('error', ...)`捕获
+
+```js
+    <script>
+        window.addEventListener('error', (args) => {
+            console.log('error event:', args);
+            return true; // 阻止事件的默认行为
+        }, true);
+
+        window.addEventListener("unhandledrejection", (e) => {
+            throw e.reason;
+        });
+
+        const asyncFunc = () => new Promise((resolve) => {
+            error; // 这里会抛出一个错误
+        });
+
+        setTimeout(async () => {
+            await asyncFunc(); // 等待 asyncFunc 的执行
+        }, 1000);
+    </script>
+```
+
+![png](http://blog.minouccc.online:9000/blog/frontend_1.10.png)
+
+9）最佳实践
+
+> error.js
+
+```js
+export default function error() {
+  // 捕获资源加载失败的错误： js css  img
+  window.addEventListener(
+    'error',
+    function (e) {
+      const target = e.target
+      if (target.src || target.href) {
+        const url = target.src || target.href
+        const reportData = {
+          type: 'error',
+          subType: 'resource',
+          url,
+          html: target.outerHTML,
+          pageUrl: window.location.href,
+          pahts: e.path,
+        }
+        // todo 发送错误信息
+        lazyReportBatch(reportData)
+      }
+    },
+    true
+  )
+  // 捕获js错误
+  window.onerror = function (msg, url, lineNo, columnNo, error) {
+    const reportData = {
+      type: 'error',
+      subType: 'js',
+      msg,
+      url,
+      lineNo,
+      columnNo,
+      stack: error.stack,
+      pageUrl: window.location.href,
+      startTime: performance.now(),
+    }
+    // todo 发送错误信息
+    lazyReportBatch(reportData)
+  }
+  // 捕获promise错误  asyn await
+  window.addEventListener(
+    'unhandledrejection',
+    function (e) {
+      const reportData = {
+        type: 'error',
+        subType: 'promise',
+        reason: e.reason?.stack,
+        pageUrl: window.location.href,
+        startTime: e.timeStamp,
+      }
+      // todo 发送错误信息
+      lazyReportBatch(reportData)
+    },
+    true
+  )
+}
+```
+
+10）Vue / React 框架错误收集
+
+- Vue 使用 [app.config.errorhandler](https://cn.vuejs.org/api/application.html#app-config-errorhandler)
+- React 使用 [ErrorBoundary](https://zh-hans.react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)
+
+```js
+import performance from './performance/index'
+import error from './error/index'
+import behavior from './behavior/index'
+import { setConfig } from './config'
+import { lazyReportBatch } from './report'
+window.__webEyeSDK__ = {
+  version: '0.0.1',
+}
+
+// 针对Vue项目的错误捕获
+export function install(Vue, options) {
+  if (__webEyeSDK__.vue) return
+  __webEyeSDK__.vue = true
+  setConfig(options)
+  const handler = Vue.config.errorHandler
+  // vue项目中 通过 Vue.config.errorHandler 捕获错误
+  Vue.config.errorHandler = function (err, vm, info) {
+    // todo: 上报具体的错误信息
+    const reportData = {
+      info,
+      error: err.stack,
+      subType: 'vue',
+      type: 'error',
+      startTime: window.performance.now(),
+      pageURL: window.location.href,
+    }
+    lazyReportBatch(reportData)
+    if (handler) {
+      handler.call(this, err, vm, info)
+    }
+  }
+}
+// 针对React项目的错误捕获
+export function errorBoundary(err, info) {
+  if (__webEyeSDK__.react) return
+  __webEyeSDK__.react = true
+  // todo: 上报具体的错误信息
+  const reportData = {
+    error: err?.stack,
+    info,
+    subType: 'react',
+    type: 'error',
+    startTime: window.performance.now(),
+    pageURL: window.location.href,
+  }
+  lazyReportBatch(reportData)
+}
+export function init(options) {
+  setConfig(options)
+  // performance();
+  // error();
+  // behavior();
+}
+
+export default {
+  install,
+  errorBoundary,
+  performance,
+  error,
+  behavior,
+  init,
+}
+
+// webEyeSDK.init({
+//     appId: '10000',
+//     batchSize: 50,
+
+// })
+```
+
+### 3. 数据上报
+
+| 方法                  | 描述     |
+| --------------------- | -------- |
+| `xhr`                 | 上报方式 |
+| `image gif`           | 上报方式 |
+| `sendBeacon`          | 上报方式 |
+| `requestIdleCallback` | 上报时机 |
+| `setTimeout`          | 上报时机 |
+| `beforeUnload`        | 上报时机 |
+| `批量上报`            | 上报时机 |
+
+> report.js
+
+```js
+import config from './config'
+import { generateUniqueId } from './utils'
+import { addCache, getCache, clearCache } from './cache'
+export const originalProto = XMLHttpRequest.prototype
+export const originalOpen = XMLHttpRequest.prototype.open
+export const originalSend = XMLHttpRequest.prototype.send
+export function isSupportSendBeacon() {
+  return 'sendBeacon' in navigator
+}
+export function report(data) {
+  if (!config.url) {
+    console.error('请设置上传 url 地址')
+  }
+  const reportData = JSON.stringify({
+    id: generateUniqueId(),
+    data,
+  })
+  // 上报数据，使用图片的方式
+  if (config.isImageUpload) {
+    imgRequest(reportData)
+  } else {
+    // 优先使用 sendBeacon
+    if (window.navigator.sendBeacon) {
+      return beaconRequest(reportData)
+    } else {
+      xhrRequest(reportData)
+    }
+  }
+}
+// 批量上报数据
+export function lazyReportBatch(data) {
+  addCache(data)
+  const dataCache = getCache()
+  console.error('dataCache', dataCache)
+  if (dataCache.length && dataCache.length > config.batchSize) {
+    report(dataCache)
+    clearCache()
+  }
+  //
+}
+// 图片发送数据
+export function imgRequest(data) {
+  const img = new Image()
+  // http://127.0.0.1:8080/api?data=encodeURIComponent(data)
+  img.src = `${config.url}?data=${encodeURIComponent(JSON.stringify(data))}`
+}
+// 普通ajax发送请求数据
+export function xhrRequest(data) {
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(
+      () => {
+        const xhr = new XMLHttpRequest()
+        originalOpen.call(xhr, 'post', config.url)
+        originalSend.call(xhr, JSON.stringify(data))
+      },
+      { timeout: 3000 }
+    )
+  } else {
+    setTimeout(() => {
+      const xhr = new XMLHttpRequest()
+      originalOpen.call(xhr, 'post', url)
+      originalSend.call(xhr, JSON.stringify(data))
+    })
+  }
+}
+
+export function beaconRequest(data) {
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(
+      () => {
+        window.navigator.sendBeacon(config.url, data)
+      },
+      { timeout: 3000 }
+    )
+  } else {
+    setTimeout(() => {
+      window.navigator.sendBeacon(config.url, data)
+    })
+  }
+}
+```
+
+> cache.js
+
+```js
+import { deepCopy } from './utils.js'
+
+const cache = []
+export function getCache() {
+  return deepCopy(cache)
+}
+export function addCache(data) {
+  cache.push(data)
+}
+export function clearCache() {
+  cache.length = 0
+}
+```
+
+> config.js
+
+```js
+const config = {
+  url: 'http://127.0.0.1:8080/api',
+  projectName: 'eyesdk',
+  appId: '123456',
+  userId: '123456',
+  isImageUpload: false,
+  batchSize: 5,
+}
+export function setConfig(options) {
+  for (const key in config) {
+    if (options[key]) {
+      config[key] = options[key]
+    }
+  }
+}
+export default config
+```
+
+### 4. 用户行为
+
+1）pv 统计
+
+> pv.js
+
+```js
+import { lazyReportBatch } from '../report'
+import { generateUniqueId } from '../utils'
+export default function pv() {
+  const reportData = {
+    type: 'behavior',
+    subType: 'pv',
+    startTime: performance.now(),
+    pageUrl: window.location.href,
+    referror: document.referrer,
+    uuid: generateUniqueId(),
+  }
+  lazyReportBatch(reportData)
+}
+```
+
+> pageChange.js
+
+```js
+import { lazyReportBatch } from '../report'
+import { generateUniqueId } from '../utils'
+export default function pageChange() {
+  // hash histroy
+  let oldUrl = ''
+  window.addEventListener(
+    'hashchange',
+    function (event) {
+      console.error('hashchange', event)
+      const newUrl = event.newURL
+      const reportData = {
+        form: oldUrl,
+        to: newUrl,
+        type: 'behavior',
+        subType: 'hashchange',
+        startTime: performance.now(),
+        uuid: generateUniqueId(),
+      }
+      lazyReportBatch(reportData)
+      oldUrl = newUrl
+    },
+    true
+  )
+
+  let from = ''
+  window.addEventListener(
+    'popstate',
+    function (event) {
+      console.error('popstate', event)
+      const to = window.location.href
+      const reportData = {
+        form: from,
+        to: to,
+        type: 'behavior',
+        subType: 'popstate',
+        startTime: performance.now(),
+        uuid: generateUniqueId(),
+      }
+      lazyReportBatch(reportData)
+      from = to
+    },
+    true
+  )
+}
+```
+
+2）点击行为
+
+> onClick.js
+
+```js
+import { lazyReportBatch } from '../report'
+export default function click() {
+  ;['mousedown', 'touchstart'].forEach((eventType) => {
+    window.addEventListener(eventType, (e) => {
+      const target = e.target
+      if (target.tagName) {
+        const reportData = {
+          // scrollTop: document.documentElement.scrollTop,
+          type: 'behavior',
+          subType: 'click',
+          target: target.tagName,
+          startTime: e.timeStamp,
+          innerHtml: target.innerHTML,
+          outerHtml: target.outerHTML,
+          with: target.offsetWidth,
+          height: target.offsetHeight,
+          eventType,
+          path: e.path,
+        }
+        lazyReportBatch(reportData)
+      }
+    })
+  })
+}
+```
