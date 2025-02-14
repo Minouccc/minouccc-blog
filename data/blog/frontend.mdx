@@ -5,3 +5,58 @@ tags: ['frontend']
 draft: false
 summary:
 ---
+
+## Vue
+
+### vue 生态
+
+### 1）关于 vue 的理解
+
+**关键点**：`理解深度` | `避免标准答案`
+
+**回答逻辑**：
+
+1. 提框架设计。 `设计模式 MVVM(双向绑定) | 虚拟 DOM(vNode) | Diff 算法(就地服用原则) | Tree Shaking(ES module)`
+2. 讲一下 vue2 和 vue3 的区别。`响应式(原理) | 组合式 API | 新特性(Teleport、Suspense、keep-alive、setup语法糖) | ts 集成 | 生命周期(重点关注多组件挂载顺序)`
+3. 语法 `v-指令 | 修饰符 | 插槽`
+
+**扩展问题**：react vs vue 框架
+
+### 2）各种 API 设计初衷
+
+**关键点**：`对比` | `实战运用`
+
+**回答逻辑**：
+
+1. ref 和 reactive。`proxy 性能损耗`
+2. watch 和 watchEffect。`用法 | 作用`
+3. watch 和 computed。`缓存 | 异步`
+4. nextTick。`所有数据被更新都是以 promise 形式去执行(扩展: vue 从数据变更到视图响应中间发生了什么)`
+5. 组合式 api 和 mixin。`业务复杂度 | 命名冲突导致全局数据污染(扩展：vue2 data为什么是一个 function)`
+
+### 3）react vs vue 框架
+
+**关键点**: `偏感受`
+
+**回答逻辑**：
+
+1. 感受: vue 代码维护上有一定优势、但 API 比较多；相比 react 就那么几个。
+2. 设计理念：vue 是尽可能降低前端开发的门槛来适应不同的开发者,react 因为背靠大公司,不缺用户，都得照 react 制定得规则来。
+   比如数据驱动方面，vue 是响应式的，react 是手 setState。
+3. 社区支持: 决定开发人员解决问题的难易程度和速度。
+
+### react 生态
+
+### 1）关于 react 的理解
+
+**关键点**：`16.8版本前后`
+
+**回答逻辑**：
+
+1. 类组件和函数式组件。`state 重新声明`
+2. 底层。`fiber | jsx | 合成事件 | 更新流程`
+3. setState 同步异步。`可调度范围 | 合成事件`
+4. setState 和 useState 区别。`浅比较 | 新值获取 | 合并、替换`
+5. useCallback / useMemo。
+6. useEffect / useLayoutEffect。
+7. 闭包陷阱。
