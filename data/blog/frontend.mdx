@@ -60,3 +60,43 @@ summary:
 5. useCallback / useMemo。
 6. useEffect / useLayoutEffect。
 7. 闭包陷阱。
+
+## React
+
+### 1）fiber
+
+**相关问题**：
+
+- **fiber 是什么**
+
+  - fiber 诞生在 `Reactv16` 版本，整个 React 团队花费两年时间重构 fiber 架构，目的就是解决大型 React 应用卡顿；
+  - fiber 在 React 中是最小粒度的执行单元，无论 React 还是 Vue ，在遍历更新每一个节点的时候都不是用的真实 DOM ，都是采用虚拟 DOM ，所以可以理解成 fiber 就是 React 的虚拟 DOM 。
+
+- **为什么 react 需要 fiber 架构**
+
+  - 在 `Reactv15` 以及之前的版本，React 对于虚拟 DOM 是采用递归方式遍历更新的，比如一次更新，就会从应用根部递归更新，递归一旦开始，中途无法中断，随着项目越来越复杂，层级越来越深，导致更新的时间越来越长，给前端交互上的体验就是卡顿。
+  - `Reactv16` 为了解决卡顿问题引入了 fiber ，为什么它能解决卡顿，更新 fiber 的过程叫做 Reconciler（调和器），每一个 fiber 都可以作为一个执行单元来处理，所以每一个 fiber 可以根据自身的过期时间expirationTime（ v17 版本叫做优先级 lane ）来判断是否还有空间时间执行更新，如果没有时间更新，就要把主动权交给浏览器去渲染，做一些动画，重排（ reflow ），重绘 repaints 之类的事情，这样就能给用户感觉不是很卡。然后等浏览器空余时间，在通过 scheduler （调度器），再次恢复执行单元上来，这样就能本质上中断了渲染，提高了用户体验。
+
+- **element,fiber,dom 三种什么关系**
+
+  - fiber 可以说是是 element 和真实 DOM 之间的交流枢纽站
+
+- **fiber 保存了那些信息**
+
+  - 待补充
+
+- **每一个 fiber 如何建立起关联的**
+
+  - 每一个 element 都会对应一个 fiber ，每一个 fiber 是通过 return ， child ，sibling 三个属性建立起联系的。
+
+- **fiber 更新机制**
+
+  - 待补充
+
+- **fiber 是如何实现时间切片的**
+
+  - 待补充
+
+- **fiber 是如何实现更新过程可控**
+
+  - 待补充
