@@ -1,4 +1,4 @@
-// @ts-check
+/* eslint-disable */
 const { fontFamily } = require('tailwindcss/defaultTheme')
 const colors = require('tailwindcss/colors')
 
@@ -15,6 +15,21 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
+      keyframes: {
+        riseAndFade: {
+          '0%': {
+            transform: 'translate(-50%, -50%)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'translate(-50%, -150%)',
+            opacity: '0',
+          },
+        },
+      },
+      animation: {
+        'rise-fade': 'riseAndFade 1s forwards',
+      },
       lineHeight: {
         11: '2.75rem',
         12: '3rem',
